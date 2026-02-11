@@ -45,7 +45,7 @@ STATE_ABBREV_TO_NAME = {
 }
 
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_data() -> pd.DataFrame:
     df = pd.read_csv(CSV_PATH, dtype=str, low_memory=False)
     for col in ["total_revenue", "total_expenses", "total_assets", "net_assets",
