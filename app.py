@@ -201,22 +201,21 @@ with tab_overview:
                       "$500K–$1M", "$1M–$5M", "$5M–$10M", "$10M–$50M",
                       "$50M–$100M", "$100M+"]
         rev_ordered = rev_counts.reindex([r for r in rev_order if r in rev_counts.index]).dropna()
-        fig_rev = px.bar(
-            x=rev_ordered.index,
-            y=rev_ordered.values,
-            labels={"x": "Revenue Range", "y": "Count"},
-        )
-        fig_rev.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=350)
-        st.plotly_chart(fig_rev, use_container_width=True)
+        if len(rev_ordered) > 0:
+            rev_df = pd.DataFrame({"Revenue Range": rev_ordered.index, "Count": rev_ordered.values})
+            fig_rev = px.bar(rev_df, x="Revenue Range", y="Count")
+            fig_rev.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=350)
+            st.plotly_chart(fig_rev, use_container_width=True)
+        else:
+            st.info("No revenue data available for current filter.")
 
     # Top states
     st.subheader("Top 15 States")
     state_counts = filtered["state"].value_counts().head(15)
+    state_df = pd.DataFrame({"State": state_counts.index, "Organizations": state_counts.values})
     fig_states = px.bar(
-        x=state_counts.index,
-        y=state_counts.values,
-        labels={"x": "State", "y": "Organizations"},
-        color=state_counts.values,
+        state_df, x="State", y="Organizations",
+        color="Organizations",
         color_continuous_scale="Blues",
     )
     fig_states.update_layout(
@@ -450,11 +449,10 @@ with tab_peers:
     if len(peers) > 0:
         # State distribution
         peer_states = peers["state"].value_counts().head(10)
+        peer_state_df = pd.DataFrame({"State": peer_states.index, "Peer Orgs": peer_states.values})
         fig_peer = px.bar(
-            x=peer_states.index,
-            y=peer_states.values,
-            labels={"x": "State", "y": "Peer Orgs"},
-            color=peer_states.values,
+            peer_state_df, x="State", y="Peer Orgs",
+            color="Peer Orgs",
             color_continuous_scale="Reds",
         )
         fig_peer.update_layout(
