@@ -1,0 +1,10 @@
+data/raw/
+data/intermediate/
+data/checkpoints/
+data/http_cache/
+data/output/active_heroes/
+data/output/pipeline.log
+__pycache__/
+*.pyc
+.env
+*.egg-info/

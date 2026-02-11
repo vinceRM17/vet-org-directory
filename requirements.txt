@@ -1,0 +1,11 @@
+pandas>=2.1
+pyarrow>=14.0
+requests>=2.31
+aiohttp>=3.9
+beautifulsoup4>=4.12
+lxml>=5.1
+playwright>=1.40
+rapidfuzz>=3.5
+usaddress>=0.5.10
+tqdm>=4.66
+python-dotenv>=1.0
