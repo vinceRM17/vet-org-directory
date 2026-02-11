@@ -19,6 +19,8 @@ import sys
 import time
 from datetime import datetime
 
+import pandas as pd
+
 from config.settings import LOG_LEVEL, OUTPUT_DIR
 from utils.checkpoint import clear_all_checkpoints
 
@@ -147,6 +149,26 @@ def stage6_dedup(df):
     return deduped
 
 
+def filter_by_state(df: pd.DataFrame, state_code: str) -> pd.DataFrame:
+    """Filter DataFrame to orgs in a specific state before enrichment."""
+    logger.info("=" * 60)
+    logger.info(f"STATE FILTER: Filtering to {state_code}")
+    logger.info("=" * 60)
+
+    # Case-insensitive state matching (IRS BMF uses uppercase, other sources may vary)
+    mask = df["state"].str.upper() == state_code.upper()
+    filtered = df[mask].copy()
+
+    logger.info(f"State filter: {len(filtered):,} of {len(df):,} orgs "
+                 f"({len(filtered)/max(len(df),1)*100:.1f}%)")
+
+    if len(filtered) == 0:
+        logger.warning(f"No orgs found for state '{state_code}'. "
+                       "Check that the state column contains 2-letter codes.")
+
+    return filtered
+
+
 def stage7_enrichment(df):
     """Stage 7: Web enrichment for social media and email."""
     from transformers.enricher import WebEnricher
@@ -194,6 +216,10 @@ def main():
     parser.add_argument(
         "--stages", type=str, default=None,
         help="Comma-separated list of stages to run (e.g., '1,2,5')"
+    )
+    parser.add_argument(
+        "--state-filter", type=str, default=None,
+        help="Filter to specific state before enrichment (e.g., 'KY' for Kentucky)"
     )
     args = parser.parse_args()
 
@@ -283,7 +309,13 @@ def main():
 
         # Stage 7: Web enrichment (optional)
         if 7 in run_stages:
-            merged = stage7_enrichment(merged)
+            if args.state_filter:
+                enrichment_df = filter_by_state(merged, args.state_filter)
+                enrichment_df = stage7_enrichment(enrichment_df)
+                # Merge enrichments back into full dataset
+                merged.update(enrichment_df)
+            else:
+                merged = stage7_enrichment(merged)
 
         # Stage 8: Output
         if 8 in run_stages:
