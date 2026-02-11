@@ -1,11 +1,11 @@
 ======================================================================
 VETERAN ORGANIZATION DIRECTORY — SUMMARY REPORT
-Generated: 2026-02-10T18:51:29
+Generated: 2026-02-11T08:39:38
 ======================================================================
 
-Total organizations: 77,324
-Unique EINs: 77,244
-Records with EIN: 77,244
+Total organizations: 80,784
+Unique EINs: 80,704
+Records with EIN: 80,704
 Records without EIN: 80
 
 ── Coverage ──
@@ -14,7 +14,7 @@ Records with phone: 83
 Records with email: 0
 Records with website: 1
 Records with mission: 0
-Records with financials: 67,380
+Records with financials: 70,027
 Records with CN rating: 0
 VA-accredited orgs: 91
 
@@ -22,52 +22,52 @@ VA-accredited orgs: 91
 Mean confidence: 0.526
 Median confidence: 0.550
 High confidence (>0.7): 0
-Medium confidence (0.4-0.7): 77,244
+Medium confidence (0.4-0.7): 80,704
 Low confidence (<0.4): 80
 
 ── By State (top 15) ──
-  CA: 6,993
-  FL: 5,394
-  TX: 5,087
-  NY: 4,102
-  PA: 3,274
-  OH: 3,188
-  IL: 2,806
-  MI: 2,480
-  NC: 2,427
-  GA: 2,308
-  VA: 2,278
-  MN: 1,943
-  NJ: 1,925
-  WI: 1,897
-  IN: 1,750
+  CA: 7,295
+  FL: 5,699
+  TX: 5,434
+  NY: 4,269
+  PA: 3,401
+  OH: 3,305
+  IL: 2,916
+  MI: 2,572
+  NC: 2,564
+  GA: 2,445
+  VA: 2,394
+  NJ: 2,007
+  MN: 2,004
+  WI: 1,954
+  IN: 1,823
 
 ── By Organization Type ──
-  501(c)(3): 46,827
+  501(c)(3): 50,250
   501(c)(19): 21,626
-  501(c)(4): 6,095
-  501(c)(06): 667
-  501(c)(12): 628
-  501(c)(07): 546
+  501(c)(4): 6,107
+  501(c)(06): 669
+  501(c)(12): 630
+  501(c)(07): 563
   501(c)(14): 137
-  501(c)(05): 111
-  501(c)(13): 94
+  501(c)(05): 112
+  501(c)(13): 96
   501(c)(10): 85
 
 ── By Revenue Range ──
-  $0: 45,433
-  $100K–$500K: 7,857
-  Under $50K: 5,617
-  $50K–$100K: 3,790
-  $1M–$5M: 1,862
-  $500K–$1M: 1,549
-  $10M–$50M: 494
-  $5M–$10M: 361
+  $0: 47,240
+  $100K–$500K: 8,166
+  Under $50K: 5,815
+  $50K–$100K: 3,963
+  $1M–$5M: 1,925
+  $500K–$1M: 1,612
+  $10M–$50M: 507
+  $5M–$10M: 375
   $100M+: 140
-  $50M–$100M: 102
+  $50M–$100M: 105
 
 ── Data Sources ──
-  irs_bmf: 77,244
+  irs_bmf: 80,704
   va_vso: 91
   nrd: 1
 
