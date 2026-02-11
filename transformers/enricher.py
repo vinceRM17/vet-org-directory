@@ -7,6 +7,7 @@ import re
 
 import pandas as pd
 from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 from config.settings import CHECKPOINT_INTERVAL, ENRICHER_RATE_LIMIT, ENRICHER_TIMEOUT
 from utils.checkpoint import load_checkpoint, save_checkpoint
@@ -81,7 +82,13 @@ class WebEnricher:
         remaining = [i for i in needs_enrichment if i not in done_indices]
         self.logger.info(f"Enriching {len(remaining):,} org websites")
 
-        for count, idx in enumerate(remaining):
+        for count, idx in enumerate(tqdm(
+            remaining,
+            desc="Enriching websites",
+            unit="org",
+            initial=len(done_indices),
+            total=len(needs_enrichment),
+        )):
             url = df.at[idx, "website"]
             try:
                 data = self._scrape_website(url)
@@ -94,8 +101,8 @@ class WebEnricher:
 
             if (count + 1) % CHECKPOINT_INTERVAL == 0:
                 save_checkpoint("enricher_partial", (enrichments, done_indices))
-                self.logger.info(
-                    f"Enrichment progress: {len(done_indices):,}/{len(needs_enrichment):,}"
+                tqdm.write(
+                    f"  Checkpoint saved: {len(done_indices):,}/{len(needs_enrichment):,} orgs processed"
                 )
 
         # Apply enrichments

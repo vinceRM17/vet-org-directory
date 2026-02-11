@@ -56,7 +56,7 @@ DISK_CACHE_DIR = DATA_DIR / "http_cache"
 DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Checkpoint settings ────────────────────────────────────────────────
-CHECKPOINT_INTERVAL = 500  # save every N API calls
+CHECKPOINT_INTERVAL = 100  # save every N operations (reduced from 500 for web scraping)
 
 # ── Enricher (web scraping for social media) ───────────────────────────
 ENRICHER_RATE_LIMIT = 0.5  # requests per second
