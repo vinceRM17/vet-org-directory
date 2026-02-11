@@ -17,12 +17,17 @@ from utils.http_client import RateLimitedSession
 
 logger = logging.getLogger(__name__)
 
-# Corrected NODC GitHub URLs (file was renamed from efiler_master_concordance.csv)
-NODC_BASE = "https://raw.githubusercontent.com/Nonprofit-Open-Data-Collective/irs-efile-master-concordance-file/master"
-CONCORDANCE_URL = f"{NODC_BASE}/concordance.csv"
+# Verified NODC GitHub URLs (probed 2026-02-11)
+# The concordance file is confirmed working at master branch
+NODC_BASE_MASTER = "https://raw.githubusercontent.com/Nonprofit-Open-Data-Collective/irs-efile-master-concordance-file/master"
+NODC_BASE_MAIN = "https://raw.githubusercontent.com/Nonprofit-Open-Data-Collective/irs-efile-master-concordance-file/main"
+CONCORDANCE_URL = f"{NODC_BASE_MASTER}/concordance.csv"
 
-# Additional NODC data repos
-NODC_BMF_REPO = "https://raw.githubusercontent.com/Nonprofit-Open-Data-Collective/irs-exempt-org-business-master-file/master"
+# Note: The BMF repo (irs-exempt-org-business-master-file) no longer hosts CSV data files.
+# It only contains R build scripts. BMF data URLs are included below for fallback attempts
+# but are not expected to work. NODC has moved to a "build your own data" model.
+NODC_BMF_BASE_MASTER = "https://raw.githubusercontent.com/Nonprofit-Open-Data-Collective/irs-exempt-org-business-master-file/master"
+NODC_BMF_BASE_MAIN = "https://raw.githubusercontent.com/Nonprofit-Open-Data-Collective/irs-exempt-org-business-master-file/main"
 
 
 class NodcExtractor(BaseExtractor):
@@ -42,16 +47,26 @@ class NodcExtractor(BaseExtractor):
                 self.http.download_file(CONCORDANCE_URL, concordance_path)
                 self.logger.info("Downloaded NODC concordance file")
             except Exception as e:
-                self.logger.warning(f"Could not download NODC concordance: {e}")
+                self.logger.warning(f"Could not download NODC concordance from {CONCORDANCE_URL}: {e}")
 
-        # Try multiple data file locations
+        # Try multiple data file locations with both master and main branch variants
+        # Note: As of 2026-02-11, NODC BMF repo no longer hosts CSV data (only R scripts).
+        # These URLs are kept for fallback but are not expected to work.
         data_urls = [
-            f"{NODC_BMF_REPO}/data/bmf-master.csv",
-            f"{NODC_BMF_REPO}/bmf-master.csv",
-            f"{NODC_BASE}/990_master.csv",
+            # BMF master branch attempts
+            f"{NODC_BMF_BASE_MASTER}/data/bmf-master.csv",
+            f"{NODC_BMF_BASE_MASTER}/bmf-master.csv",
+            # BMF main branch attempts (for GitHub branch rename resilience)
+            f"{NODC_BMF_BASE_MAIN}/data/bmf-master.csv",
+            f"{NODC_BMF_BASE_MAIN}/bmf-master.csv",
+            # Concordance repo data attempts
+            f"{NODC_BASE_MASTER}/990_master.csv",
+            f"{NODC_BASE_MAIN}/990_master.csv",
         ]
 
+        attempted_urls = []
         for url in data_urls:
+            attempted_urls.append(url)
             try:
                 dest = RAW_DIR / f"nodc_{url.split('/')[-1]}"
                 if not dest.exists():
@@ -77,7 +92,12 @@ class NodcExtractor(BaseExtractor):
                 self.logger.warning(f"Could not process NODC file {url}: {e}")
                 continue
 
-        self.logger.info("No NODC data files yielded results")
+        # Log clear explanation if no data files worked
+        self.logger.warning(
+            f"NODC extractor: No data files available. Attempted {len(attempted_urls)} URLs. "
+            f"As of Feb 2026, NODC BMF repo only contains R build scripts (no hosted CSV data). "
+            f"Returning empty DataFrame."
+        )
         return pd.DataFrame()
 
     def _find_ein_column(self, df: pd.DataFrame) -> str | None:
