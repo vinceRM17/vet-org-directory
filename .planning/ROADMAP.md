@@ -27,10 +27,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Pipeline filters to Kentucky orgs before running Stage 7 enrichment
   3. Enrichment runs with checkpoint-based resumability saving progress every 100 orgs
   4. Enrichment shows progress bar and estimated time remaining during batch processing
-**Plans**: TBD
+**Plans**: 2 plans (Wave 1 parallel)
 
 Plans:
-- [ ] 01-01: TBD during phase planning
+- [ ] 01-01-PLAN.md — Fix NODC extractor GitHub URLs (SRC-01, SRC-02)
+- [ ] 01-02-PLAN.md — Kentucky filter + enrichment progress bar (ENRICH-01, ENRICH-05, ENRICH-06)
 
 ### Phase 2: Contact Enrichment
 **Goal**: Kentucky orgs have real contact information scraped from their websites with validation
@@ -68,6 +69,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Kentucky Filtering | 0/TBD | Not started | - |
+| 1. Foundation & Kentucky Filtering | 0/2 | Not started | - |
 | 2. Contact Enrichment | 0/TBD | Not started | - |
 | 3. Dashboard & Quality Reporting | 0/TBD | Not started | - |
