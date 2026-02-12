@@ -219,34 +219,37 @@ FIELD_GROUPS = {
 
 # ── Confidence Grade Criteria (rule-based, checked top-down) ────────
 #
-# A (Verified):  Has identity + financials + at least 1 contact + rating/VA
-# B (Strong):    Has identity + financials + NTEE classification
-# C (Basic):     Has identity + (financials OR NTEE classification)
-# D (Minimal):   Has identity fields (name + EIN + address)
-# F (Stub):      Missing EIN or address
+# Legacy A-F grades (still in CSV from pipeline):
+#   A (Verified), B (Strong), C (Basic), D (Minimal), F (Stub)
+#
+# Display tier (3-tier, mapped from legacy grades in app.py):
+#   Enriched (B/A) — IRS identity + ProPublica financials matched
+#   Baseline (C)   — IRS identity/location/classification only
+#   Partial  (D/F) — Missing some core identity or location fields
 #
 CONFIDENCE_TIERS = [
     {
-        "grade": "A", "label": "Verified", "color": "#2F855A",
-        "description": "Identity + financials + contact + rating/VA accreditation",
+        "grade": "Enriched", "label": "Enriched", "color": "#2F855A",
+        "description": "IRS identity + ProPublica financials matched",
     },
     {
-        "grade": "B", "label": "Strong", "color": "#2C5282",
-        "description": "Identity + financials + NTEE classification",
+        "grade": "Baseline", "label": "Baseline", "color": "#2C5282",
+        "description": "IRS identity, location, and classification only",
     },
     {
-        "grade": "C", "label": "Basic", "color": "#D69E2E",
-        "description": "Identity + financials or NTEE classification",
-    },
-    {
-        "grade": "D", "label": "Minimal", "color": "#DD6B20",
-        "description": "Identity fields only (name + EIN + address)",
-    },
-    {
-        "grade": "F", "label": "Stub", "color": "#C53030",
-        "description": "Missing EIN or address",
+        "grade": "Partial", "label": "Partial", "color": "#D69E2E",
+        "description": "Missing some core identity or location fields",
     },
 ]
 
 GRADE_INFO = {t["grade"]: t for t in CONFIDENCE_TIERS}
-GRADE_OPTIONS = [f"{t['grade']} - {t['label']}" for t in CONFIDENCE_TIERS]
+GRADE_OPTIONS = [t["grade"] for t in CONFIDENCE_TIERS]
+
+# Mapping from legacy A-F grades (in CSV) to 3-tier display grades
+LEGACY_GRADE_MAP = {
+    "A": "Enriched",
+    "B": "Enriched",
+    "C": "Baseline",
+    "D": "Partial",
+    "F": "Partial",
+}
