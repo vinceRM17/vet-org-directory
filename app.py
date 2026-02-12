@@ -280,7 +280,7 @@ if "confidence_grade" in df.columns:
     for t in CONFIDENCE_TIERS:
         g = t["grade"]
         cnt = grade_counts.get(g, 0)
-        dist_parts.append(f"**{g}**: {cnt:,}")
+        dist_parts.append(f"<strong>{g}</strong>: {cnt:,}")
     st.sidebar.markdown(
         '<div style="font-size:0.78rem; line-height:1.6; color:#a0b8cf;">'
         + " &bull; ".join(dist_parts) + "</div>",
