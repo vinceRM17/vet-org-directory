@@ -262,8 +262,8 @@ st.sidebar.markdown(
 )
 st.sidebar.divider()
 
-# Search
-search_query = st.sidebar.text_input("Search organization name", placeholder="e.g. Wounded Warrior, VFW")
+# Search (expanded: name, city, mission, services, service_categories, eligibility)
+search_query = st.sidebar.text_input("Search", placeholder="e.g. Wounded Warrior, Louisville, housing")
 
 # Grade-based filter (primary)
 selected_grades = st.sidebar.multiselect(
@@ -291,6 +291,23 @@ if "confidence_grade" in df.columns:
 all_states = sorted(df["state"].dropna().unique().tolist())
 selected_states = st.sidebar.multiselect("State", all_states, default=[])
 
+# City search
+city_query = st.sidebar.text_input("City", placeholder="e.g. Louisville, San Diego")
+
+# ZIP code search
+zip_query = st.sidebar.text_input("ZIP Code (prefix)", placeholder="e.g. 40165, 921")
+
+# Service categories
+_all_categories = set()
+if "service_categories" in df.columns:
+    for val in df["service_categories"].dropna().unique():
+        for cat in str(val).split(";"):
+            cat = cat.strip()
+            if cat:
+                _all_categories.add(cat)
+all_categories = sorted(_all_categories)
+selected_categories = st.sidebar.multiselect("Service Categories", all_categories, default=[]) if all_categories else []
+
 # Advanced filters in expander
 with st.sidebar.expander("Advanced Filters"):
     all_org_types = sorted(df["org_type"].dropna().unique().tolist())
@@ -302,6 +319,11 @@ with st.sidebar.expander("Advanced Filters"):
     va_filter = st.selectbox("VA Accredited", ["Any", "Yes", "No"])
 
     ntee_input = st.text_input("NTEE Code (prefix)", placeholder="e.g. W, W30, P70")
+
+    has_contact = st.checkbox("Has contact info (phone, email, or website)")
+
+    emp_options = ["Any", "1–10", "11–50", "51–200", "201–1000", "1000+"]
+    selected_employees = st.selectbox("Employee Count", emp_options)
 
     min_confidence = st.slider("Min Confidence Score", 0.0, 1.0, 0.0, 0.05)
 
@@ -318,10 +340,9 @@ filtered = df.copy()
 
 if search_query:
     mask = filtered["org_name"].str.contains(search_query, case=False, na=False)
-    if "mission_statement" in filtered.columns:
-        mask |= filtered["mission_statement"].str.contains(search_query, case=False, na=False)
-    if "services_offered" in filtered.columns:
-        mask |= filtered["services_offered"].str.contains(search_query, case=False, na=False)
+    for col in ["city", "mission_statement", "services_offered", "service_categories", "eligibility_requirements"]:
+        if col in filtered.columns:
+            mask |= filtered[col].str.contains(search_query, case=False, na=False)
     filtered = filtered[mask]
 
 if _required_grade_letters and "confidence_grade" in filtered.columns:
@@ -329,6 +350,18 @@ if _required_grade_letters and "confidence_grade" in filtered.columns:
 
 if selected_states:
     filtered = filtered[filtered["state"].isin(selected_states)]
+
+if city_query:
+    filtered = filtered[filtered["city"].str.contains(city_query, case=False, na=False)]
+
+if zip_query:
+    filtered = filtered[filtered["zip_code"].str.startswith(zip_query, na=False)]
+
+if selected_categories:
+    cat_mask = pd.Series(False, index=filtered.index)
+    for cat in selected_categories:
+        cat_mask |= filtered["service_categories"].str.contains(cat, case=False, na=False)
+    filtered = filtered[cat_mask]
 
 if selected_org_types:
     filtered = filtered[filtered["org_type"].isin(selected_org_types)]
@@ -354,6 +387,28 @@ elif va_filter == "No":
 
 if ntee_input:
     filtered = filtered[filtered["ntee_code"].str.startswith(ntee_input.upper(), na=False)]
+
+if has_contact:
+    contact_mask = pd.Series(False, index=filtered.index)
+    for col in ["phone", "email", "website"]:
+        if col in filtered.columns:
+            contact_mask |= filtered[col].notna() & (filtered[col].str.strip() != "")
+    filtered = filtered[contact_mask]
+
+if selected_employees != "Any":
+    emp_ranges = {
+        "1–10": (1, 10),
+        "11–50": (11, 50),
+        "51–200": (51, 200),
+        "201–1000": (201, 1000),
+        "1000+": (1000, float("inf")),
+    }
+    emp_low, emp_high = emp_ranges[selected_employees]
+    filtered = filtered[
+        filtered["num_employees"].notna()
+        & (filtered["num_employees"] >= emp_low)
+        & (filtered["num_employees"] <= emp_high)
+    ]
 
 if min_confidence > 0:
     filtered = filtered[filtered["confidence_score"] >= min_confidence]
