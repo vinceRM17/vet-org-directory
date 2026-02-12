@@ -128,7 +128,7 @@ class WebEnricher:
 
         # Extract social media URLs from all links
         for a_tag in soup.find_all("a", href=True):
-            href = a_tag["href"]
+            href = str(a_tag["href"])
             for field, pattern in SOCIAL_PATTERNS.items():
                 if field not in result:
                     match = pattern.search(href)
@@ -155,6 +155,6 @@ class WebEnricher:
         # Extract meta description as services_offered
         meta_desc = soup.find("meta", attrs={"name": "description"})
         if meta_desc and meta_desc.get("content"):
-            result["mission_statement"] = meta_desc["content"].strip()[:500]
+            result["mission_statement"] = str(meta_desc["content"]).strip()[:500]
 
         return result if result else None

@@ -60,7 +60,7 @@ class NrdExtractor(BaseExtractor):
 
     def _fetch_landing_items(self) -> list[dict]:
         """Fetch the /landingItems JSON endpoint for featured resources."""
-        records = []
+        records: list[dict] = []
         resp = self.http.get(LANDING_ITEMS_URL)
         if resp.status_code != 200:
             self.logger.warning(f"NRD landingItems returned {resp.status_code}")
