@@ -70,6 +70,8 @@ SCHEMA_COLUMNS = [
     ("data_sources", "string", "Semicolon-separated list of data sources"),
     ("data_freshness_date", "string", "Date data was last collected (YYYY-MM-DD)"),
     ("confidence_score", "float64", "Record completeness score (0.0 - 1.0)"),
+    ("confidence_grade", "string", "Letter grade A-F based on data completeness"),
+    ("confidence_detail", "string", "JSON with per-group filled/total/source breakdown"),
     ("record_last_updated", "string", "Timestamp of last update"),
 ]
 
@@ -154,3 +156,97 @@ CONFIDENCE_WEIGHTS = {
     "data_sources": 0.04,
     "key_personnel": 0.04,
 }
+
+
+# ── Field Groups (for per-group confidence breakdown) ────────────────
+FIELD_GROUPS = {
+    "identity": {
+        "label": "Identity",
+        "icon": "🏢",
+        "fields": ["org_name", "ein", "org_type"],
+        "source_hint": "irs_bmf",
+    },
+    "location": {
+        "label": "Location",
+        "icon": "📍",
+        "fields": ["street_address", "city", "state", "zip_code"],
+        "source_hint": "irs_bmf",
+    },
+    "classification": {
+        "label": "Classification",
+        "icon": "📋",
+        "fields": ["ntee_code", "irs_subsection", "tax_exempt_status"],
+        "source_hint": "irs_bmf",
+    },
+    "financials": {
+        "label": "Financials",
+        "icon": "💰",
+        "fields": ["total_revenue", "total_expenses", "total_assets", "net_assets"],
+        "source_hint": "propublica",
+    },
+    "contact": {
+        "label": "Contact",
+        "icon": "📞",
+        "fields": ["phone", "email", "website"],
+        "source_hint": "web_enrichment",
+    },
+    "ratings": {
+        "label": "Ratings",
+        "icon": "⭐",
+        "fields": ["charity_navigator_rating", "va_accredited"],
+        "source_hint": "charity_nav / va_vso",
+    },
+    "description": {
+        "label": "Description",
+        "icon": "📝",
+        "fields": ["mission_statement", "services_offered", "service_categories"],
+        "source_hint": "nrd / web_enrichment",
+    },
+    "social": {
+        "label": "Social Media",
+        "icon": "🌐",
+        "fields": ["facebook_url", "twitter_url", "linkedin_url", "instagram_url"],
+        "source_hint": "web_enrichment",
+    },
+    "personnel": {
+        "label": "Personnel",
+        "icon": "👥",
+        "fields": ["key_personnel", "board_members"],
+        "source_hint": "propublica / nrd",
+    },
+}
+
+
+# ── Confidence Grade Criteria (rule-based, checked top-down) ────────
+#
+# A (Verified):  Has identity + financials + at least 1 contact + rating/VA
+# B (Strong):    Has identity + financials + NTEE classification
+# C (Basic):     Has identity + (financials OR NTEE classification)
+# D (Minimal):   Has identity fields (name + EIN + address)
+# F (Stub):      Missing EIN or address
+#
+CONFIDENCE_TIERS = [
+    {
+        "grade": "A", "label": "Verified", "color": "#2F855A",
+        "description": "Identity + financials + contact + rating/VA accreditation",
+    },
+    {
+        "grade": "B", "label": "Strong", "color": "#2C5282",
+        "description": "Identity + financials + NTEE classification",
+    },
+    {
+        "grade": "C", "label": "Basic", "color": "#D69E2E",
+        "description": "Identity + financials or NTEE classification",
+    },
+    {
+        "grade": "D", "label": "Minimal", "color": "#DD6B20",
+        "description": "Identity fields only (name + EIN + address)",
+    },
+    {
+        "grade": "F", "label": "Stub", "color": "#C53030",
+        "description": "Missing EIN or address",
+    },
+]
+
+GRADE_INFO = {t["grade"]: t for t in CONFIDENCE_TIERS}
+GRADE_OPTIONS = [f"{t['grade']} - {t['label']}" for t in CONFIDENCE_TIERS]

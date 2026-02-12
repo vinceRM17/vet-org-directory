@@ -1,7 +1,7 @@
 """
 Veteran Organization Directory — Streamlit Dashboard
 
-Interactive search, filter, and explore 77K+ veteran support organizations.
+Interactive search, filter, and explore 80K+ veteran support organizations.
 Built for Active Heroes to identify partners, funders, and peer organizations.
 
 Usage:
@@ -16,6 +16,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from config.schema import (
+    CONFIDENCE_TIERS,
+    FIELD_GROUPS,
+    GRADE_INFO,
+    GRADE_OPTIONS,
+)
+
 # ── Page Config ────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Veteran Org Directory",
@@ -24,10 +31,191 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── Color Tokens ──────────────────────────────────────────────────────
+NAVY = "#1B3A5C"
+SLATE = "#2D3748"
+BLUE = "#3182CE"
+RED_ACCENT = "#C53030"
+GREEN = "#2F855A"
+AMBER = "#D69E2E"
+
+CHART_COLORS = [
+    "#1B3A5C", "#2C5282", "#3182CE", "#63B3ED",
+    "#C53030", "#FC8181", "#2F855A", "#68D391",
+]
+
+# ── CSS Design System ─────────────────────────────────────────────────
+st.markdown("""<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+
+    /* Navy sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1b3a5c 0%, #15304d 100%) !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] { color: #d0dbe6 !important; }
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1,
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3,
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] strong { color: #ffffff !important; }
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color: #a0b8cf !important; }
+    section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.15) !important; }
+    section[data-testid="stSidebar"] label { color: #d0dbe6 !important; }
+
+    /* Hero header */
+    .hero-header {
+        background: linear-gradient(135deg, #1b3a5c 0%, #2C5282 50%, #3182CE 100%);
+        color: white; padding: 2rem 2.5rem; border-radius: 1rem;
+        margin-bottom: 1.5rem; position: relative; overflow: hidden;
+    }
+    .hero-header::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 160px; height: 160px; border-radius: 50%;
+        background: rgba(255,255,255,0.06); pointer-events: none;
+    }
+    .hero-header h1 { color: #fff !important; margin-bottom: 0.25rem; font-size: 2rem; position: relative; }
+    .hero-header p { color: #d4e8f0; margin: 0; font-size: 1.05rem; position: relative; }
+
+    /* Custom metric card */
+    .metric-card {
+        background: white; border: 1px solid #E2E8F0; border-radius: 0.75rem;
+        padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.10); }
+    .metric-card .mc-icon { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .metric-card .mc-value { font-size: 1.8rem; font-weight: 800; color: #2D3748; line-height: 1.2; }
+    .metric-card .mc-label { font-size: 0.85rem; color: #718096; margin-top: 0.15rem; }
+
+    /* Grade badges */
+    .grade-badge {
+        display: inline-block; padding: 3px 14px; border-radius: 12px;
+        font-size: 0.82rem; font-weight: 700; color: white; white-space: nowrap;
+    }
+    .grade-A { background: #2F855A; }
+    .grade-B { background: #2C5282; }
+    .grade-C { background: #D69E2E; }
+    .grade-D { background: #DD6B20; }
+    .grade-F { background: #C53030; }
+
+    /* Source tags */
+    .source-tag {
+        display: inline-block; background: #EDF2F7; color: #4A5568;
+        border: 1px solid #E2E8F0; padding: 1px 8px; border-radius: 8px;
+        font-size: 0.72rem; font-weight: 600; margin-right: 3px;
+    }
+
+    /* Confidence breakdown grid */
+    .conf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 0.75rem 0; }
+    .conf-group-card {
+        background: white; border: 1px solid #E2E8F0; border-radius: 0.5rem;
+        padding: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .conf-group-card .cg-header { display: flex; justify-content: space-between; margin-bottom: 0.35rem; }
+    .conf-group-card .cg-label { font-size: 0.78rem; font-weight: 600; color: #2D3748; }
+    .conf-group-card .cg-count { font-size: 0.72rem; color: #718096; }
+    .conf-group-card .cg-bar { height: 6px; background: #EDF2F7; border-radius: 3px; overflow: hidden; margin-bottom: 0.25rem; }
+    .conf-group-card .cg-bar-fill { height: 100%; border-radius: 3px; }
+
+    /* Headers */
+    h1 { color: #1b3a5c; }
+    h2 { color: #2D3748; }
+    h3 { color: #2C5282; }
+
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        border-bottom-color: #1B3A5C !important; color: #1B3A5C !important;
+    }
+
+    /* Default metrics */
+    div[data-testid="stMetric"] {
+        background: white; border: 1px solid #E2E8F0; border-radius: 0.75rem;
+        padding: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+</style>""", unsafe_allow_html=True)
+
+
+# ── Helper Functions ──────────────────────────────────────────────────
+
+def metric_card(label, value, icon="", border_color=NAVY):
+    return (
+        f'<div class="metric-card" style="border-top: 3px solid {border_color};">'
+        f'<div class="mc-icon">{icon}</div>'
+        f'<div class="mc-value">{value}</div>'
+        f'<div class="mc-label">{label}</div>'
+        f'</div>'
+    )
+
+
+def style_chart(fig, height=400):
+    fig.update_layout(
+        template="plotly_white",
+        font=dict(family="Inter, sans-serif", color="#2D3748"),
+        colorway=CHART_COLORS,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=height,
+        margin=dict(l=20, r=20, t=40, b=20),
+    )
+    return fig
+
+
+def grade_badge_html(grade, show_label=True):
+    info = GRADE_INFO.get(grade, GRADE_INFO.get("F", {}))
+    label_text = f" {info.get('label', '')}" if show_label else ""
+    return f'<span class="grade-badge grade-{grade}">{grade}{label_text}</span>'
+
+
+def render_confidence_breakdown(detail_json):
+    """Render 3-column grid of field-group cards from a confidence_detail JSON string."""
+    try:
+        detail = json.loads(detail_json) if isinstance(detail_json, str) else detail_json
+    except (json.JSONDecodeError, TypeError):
+        return ""
+
+    groups = detail.get("groups", {})
+    cards = ""
+    for gkey, gdata in groups.items():
+        gdef = FIELD_GROUPS.get(gkey, {})
+        filled = gdata.get("filled", 0)
+        total = gdata.get("total", 1)
+        pct = round(filled / total * 100) if total > 0 else 0
+        bar_color = "#2F855A" if pct >= 80 else "#3182CE" if pct >= 40 else "#D69E2E" if pct > 0 else "#E2E8F0"
+        icon = gdef.get("icon", "")
+        label = gdef.get("label", gkey)
+        source = gdata.get("source", "")
+
+        cards += (
+            f'<div class="conf-group-card">'
+            f'<div class="cg-header">'
+            f'<span class="cg-label">{icon} {label}</span>'
+            f'<span class="cg-count">{filled}/{total}</span>'
+            f'</div>'
+            f'<div class="cg-bar"><div class="cg-bar-fill" '
+            f'style="width:{pct}%; background:{bar_color};"></div></div>'
+            f'<span class="source-tag">{source}</span>'
+            f'</div>'
+        )
+    return f'<div class="conf-grid">{cards}</div>'
+
+
+def format_currency(val):
+    if pd.isna(val):
+        return "N/A"
+    if val >= 1_000_000_000:
+        return f"${val / 1_000_000_000:.1f}B"
+    if val >= 1_000_000:
+        return f"${val / 1_000_000:.1f}M"
+    if val >= 1_000:
+        return f"${val / 1_000:.0f}K"
+    return f"${val:.0f}"
+
+
+# ── Data ──────────────────────────────────────────────────────────────
 DATA_DIR = Path(__file__).parent / "data" / "output"
 CSV_PATH = DATA_DIR / "veteran_org_directory.csv"
 
-# State FIPS for choropleth mapping
 STATE_ABBREV_TO_NAME = {
     "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
     "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
@@ -56,19 +244,7 @@ def load_data() -> pd.DataFrame:
     return df
 
 
-def format_currency(val):
-    if pd.isna(val):
-        return "N/A"
-    if val >= 1_000_000_000:
-        return f"${val / 1_000_000_000:.1f}B"
-    if val >= 1_000_000:
-        return f"${val / 1_000_000:.1f}M"
-    if val >= 1_000:
-        return f"${val / 1_000:.0f}K"
-    return f"${val:.0f}"
-
-
-# ── Load Data ──────────────────────────────────────────────────────────
+# ── Load Data ─────────────────────────────────────────────────────────
 if not CSV_PATH.exists():
     st.error(f"Data file not found: {CSV_PATH}")
     st.info("Run `python main.py` first to generate the directory.")
@@ -76,44 +252,80 @@ if not CSV_PATH.exists():
 
 df = load_data()
 
-# ── Sidebar Filters ────────────────────────────────────────────────────
-st.sidebar.title("Filters")
+# ── Sidebar ───────────────────────────────────────────────────────────
+st.sidebar.markdown(
+    '<div style="text-align:center; padding: 0.5rem 0 1rem 0;">'
+    '<h2 style="margin-bottom: 0;">🎖️ Veteran Org<br>Directory</h2>'
+    '<p style="font-size: 0.85rem;">Active Heroes &bull; Shepherdsville, KY</p>'
+    '</div>',
+    unsafe_allow_html=True,
+)
+st.sidebar.divider()
 
 # Search
 search_query = st.sidebar.text_input("Search organization name", placeholder="e.g. Wounded Warrior, VFW")
+
+# Grade-based filter (primary)
+selected_grades = st.sidebar.multiselect(
+    "Data Quality Grade",
+    options=GRADE_OPTIONS,
+    default=[],
+)
+_required_grade_letters = [g.split(" - ")[0] for g in selected_grades]
+
+# Grade distribution summary
+if "confidence_grade" in df.columns:
+    grade_counts = df["confidence_grade"].value_counts()
+    dist_parts = []
+    for t in CONFIDENCE_TIERS:
+        g = t["grade"]
+        cnt = grade_counts.get(g, 0)
+        dist_parts.append(f"**{g}**: {cnt:,}")
+    st.sidebar.markdown(
+        '<div style="font-size:0.78rem; line-height:1.6; color:#a0b8cf;">'
+        + " &bull; ".join(dist_parts) + "</div>",
+        unsafe_allow_html=True,
+    )
 
 # State filter
 all_states = sorted(df["state"].dropna().unique().tolist())
 selected_states = st.sidebar.multiselect("State", all_states, default=[])
 
-# Org type filter
-all_org_types = sorted(df["org_type"].dropna().unique().tolist())
-selected_org_types = st.sidebar.multiselect("Organization Type", all_org_types, default=[])
+# Advanced filters in expander
+with st.sidebar.expander("Advanced Filters"):
+    all_org_types = sorted(df["org_type"].dropna().unique().tolist())
+    selected_org_types = st.sidebar.multiselect("Organization Type", all_org_types, default=[])
 
-# Revenue range
-rev_options = ["Any", "Under $50K", "$50K–$500K", "$500K–$1M", "$1M–$10M", "$10M–$100M", "$100M+"]
-selected_revenue = st.sidebar.selectbox("Revenue Range", rev_options)
+    rev_options = ["Any", "Under $50K", "$50K–$500K", "$500K–$1M", "$1M–$10M", "$10M–$100M", "$100M+"]
+    selected_revenue = st.selectbox("Revenue Range", rev_options)
 
-# VA Accredited
-va_filter = st.sidebar.selectbox("VA Accredited", ["Any", "Yes", "No"])
+    va_filter = st.selectbox("VA Accredited", ["Any", "Yes", "No"])
 
-# NTEE Code prefix
-ntee_input = st.sidebar.text_input("NTEE Code (prefix)", placeholder="e.g. W, W30, P70")
+    ntee_input = st.text_input("NTEE Code (prefix)", placeholder="e.g. W, W30, P70")
 
-# Confidence score
-min_confidence = st.sidebar.slider("Min Confidence Score", 0.0, 1.0, 0.0, 0.05)
+    min_confidence = st.slider("Min Confidence Score", 0.0, 1.0, 0.0, 0.05)
 
-# ── Apply Filters ──────────────────────────────────────────────────────
+# Sidebar footer
+st.sidebar.divider()
+st.sidebar.markdown(
+    '<div style="text-align:center; font-size:0.72rem; color:#5a7a96;">'
+    'Built for Active Heroes<br>Shepherdsville, KY</div>',
+    unsafe_allow_html=True,
+)
+
+# ── Apply Filters ─────────────────────────────────────────────────────
 filtered = df.copy()
 
 if search_query:
     mask = filtered["org_name"].str.contains(search_query, case=False, na=False)
-    # Also search mission and services
     if "mission_statement" in filtered.columns:
         mask |= filtered["mission_statement"].str.contains(search_query, case=False, na=False)
     if "services_offered" in filtered.columns:
         mask |= filtered["services_offered"].str.contains(search_query, case=False, na=False)
     filtered = filtered[mask]
+
+if _required_grade_letters and "confidence_grade" in filtered.columns:
+    filtered = filtered[filtered["confidence_grade"].isin(_required_grade_letters)]
 
 if selected_states:
     filtered = filtered[filtered["state"].isin(selected_states)]
@@ -146,57 +358,79 @@ if ntee_input:
 if min_confidence > 0:
     filtered = filtered[filtered["confidence_score"] >= min_confidence]
 
-# ── Main Content ───────────────────────────────────────────────────────
-st.title("Veteran Organization Directory")
-st.caption(f"Showing {len(filtered):,} of {len(df):,} organizations")
+# ── Hero Header ───────────────────────────────────────────────────────
+avg_conf = filtered["confidence_score"].mean() if len(filtered) > 0 else 0
+st.markdown(f"""
+<div class="hero-header">
+    <h1>Veteran Organization Directory</h1>
+    <p>Built for Active Heroes &bull; {len(filtered):,} of {len(df):,} organizations</p>
+</div>
+""", unsafe_allow_html=True)
 
-# ── Tab Layout ─────────────────────────────────────────────────────────
+# ── Tab Layout ────────────────────────────────────────────────────────
 tab_overview, tab_explore, tab_map, tab_funders, tab_peers, tab_gaps = st.tabs([
     "Overview", "Explore", "Map", "Potential Funders", "Peer Network", "Gap Analysis"
 ])
 
-# ── TAB: Overview ──────────────────────────────────────────────────────
+# ── TAB: Overview ─────────────────────────────────────────────────────
 with tab_overview:
+    # KPI metric cards
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Organizations", f"{len(filtered):,}")
-    col2.metric("States Represented", filtered["state"].nunique())
-    col3.metric(
-        "Total Revenue",
-        format_currency(filtered["total_revenue"].sum())
-    )
-    col4.metric(
-        "VA Accredited",
-        f"{(filtered['va_accredited'] == 'Yes').sum():,}"
-    )
+    with col1:
+        st.markdown(metric_card("Total Organizations", f"{len(filtered):,}", "🏢", NAVY), unsafe_allow_html=True)
+    with col2:
+        st.markdown(metric_card("States Represented", str(filtered["state"].nunique()), "🗺️", "#2C5282"), unsafe_allow_html=True)
+    with col3:
+        st.markdown(metric_card("Total Revenue", format_currency(filtered["total_revenue"].sum()), "💰", GREEN), unsafe_allow_html=True)
+    with col4:
+        st.markdown(metric_card("VA Accredited", f"{(filtered['va_accredited'] == 'Yes').sum():,}", "🛡️", "#D69E2E"), unsafe_allow_html=True)
 
     col5, col6, col7, col8 = st.columns(4)
-    col5.metric("With Financials", f"{filtered['total_revenue'].notna().sum():,}")
-    col6.metric("501(c)(19) Orgs", f"{(filtered['org_type'] == '501(c)(19)').sum():,}")
-    col7.metric("501(c)(3) Orgs", f"{(filtered['org_type'] == '501(c)(3)').sum():,}")
-    col8.metric(
-        "Avg Confidence",
-        f"{filtered['confidence_score'].mean():.2f}" if len(filtered) > 0 else "N/A"
-    )
+    with col5:
+        st.markdown(metric_card("With Financials", f"{filtered['total_revenue'].notna().sum():,}", "📊", "#2C5282"), unsafe_allow_html=True)
+    with col6:
+        st.markdown(metric_card("501(c)(19) Orgs", f"{(filtered['org_type'] == '501(c)(19)').sum():,}", "🎖️", NAVY), unsafe_allow_html=True)
+    with col7:
+        st.markdown(metric_card("501(c)(3) Orgs", f"{(filtered['org_type'] == '501(c)(3)').sum():,}", "🏛️", GREEN), unsafe_allow_html=True)
+    with col8:
+        avg_str = f"{avg_conf:.2f}" if len(filtered) > 0 else "N/A"
+        st.markdown(metric_card("Avg Confidence", avg_str, "📈", "#D69E2E"), unsafe_allow_html=True)
 
     st.divider()
 
-    # Org type distribution
+    # Grade distribution chart
+    if "confidence_grade" in filtered.columns:
+        st.subheader("Confidence Grade Distribution")
+        grade_cts = filtered["confidence_grade"].value_counts()
+        grade_df = pd.DataFrame([
+            {"Grade": f"{g} - {GRADE_INFO[g]['label']}", "Count": int(grade_cts.get(g, 0))}
+            for g in ("A", "B", "C", "D", "F")
+        ])
+        fig_grade = px.bar(
+            grade_df, x="Grade", y="Count",
+            color="Grade",
+            color_discrete_map={
+                f"{g} - {GRADE_INFO[g]['label']}": GRADE_INFO[g]["color"]
+                for g in ("A", "B", "C", "D", "F")
+            },
+            title="Organizations by Data Quality Grade",
+        )
+        fig_grade.update_layout(showlegend=False)
+        style_chart(fig_grade, height=300)
+        st.plotly_chart(fig_grade, use_container_width=True)
+
+    # Org type + Revenue charts
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("By Organization Type")
         type_counts = filtered["org_type"].value_counts().head(8)
-        fig_type = px.pie(
-            values=type_counts.values,
-            names=type_counts.index,
-            hole=0.4,
-        )
-        fig_type.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=350)
+        fig_type = px.pie(values=type_counts.values, names=type_counts.index, hole=0.4)
+        style_chart(fig_type, height=350)
         st.plotly_chart(fig_type, use_container_width=True)
 
     with c2:
         st.subheader("By Revenue Range")
         rev_counts = filtered["annual_revenue_range"].value_counts()
-        # Order the revenue ranges logically
         rev_order = ["$0", "Under $50K", "$50K–$100K", "$100K–$500K",
                       "$500K–$1M", "$1M–$5M", "$5M–$10M", "$10M–$50M",
                       "$50M–$100M", "$100M+"]
@@ -204,7 +438,7 @@ with tab_overview:
         if len(rev_ordered) > 0:
             rev_df = pd.DataFrame({"Revenue Range": rev_ordered.index, "Count": rev_ordered.values})
             fig_rev = px.bar(rev_df, x="Revenue Range", y="Count")
-            fig_rev.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=350)
+            style_chart(fig_rev, height=350)
             st.plotly_chart(fig_rev, use_container_width=True)
         else:
             st.info("No revenue data available for current filter.")
@@ -213,40 +447,27 @@ with tab_overview:
     st.subheader("Top 15 States")
     state_counts = filtered["state"].value_counts().head(15)
     state_df = pd.DataFrame({"State": state_counts.index, "Organizations": state_counts.values})
-    fig_states = px.bar(
-        state_df, x="State", y="Organizations",
-        color="Organizations",
-        color_continuous_scale="Blues",
-    )
-    fig_states.update_layout(
-        margin=dict(t=20, b=20, l=20, r=20),
-        height=350,
-        showlegend=False,
-        coloraxis_showscale=False,
-    )
+    fig_states = px.bar(state_df, x="State", y="Organizations")
+    style_chart(fig_states, height=350)
     st.plotly_chart(fig_states, use_container_width=True)
 
 
-# ── TAB: Explore ───────────────────────────────────────────────────────
+# ── TAB: Explore ──────────────────────────────────────────────────────
 with tab_explore:
     st.subheader("Organization Directory")
 
     display_cols = [
         "org_name", "state", "city", "org_type", "total_revenue",
-        "va_accredited", "ntee_code", "phone", "website", "confidence_score",
+        "va_accredited", "ntee_code", "phone", "website",
+        "confidence_score",
     ]
+    if "confidence_grade" in filtered.columns:
+        display_cols.insert(-1, "confidence_grade")
     available_cols = [c for c in display_cols if c in filtered.columns]
 
-    # Sort options
-    sort_col = st.selectbox(
-        "Sort by",
-        ["org_name", "total_revenue", "confidence_score", "state"],
-        index=0,
-    )
+    sort_col = st.selectbox("Sort by", ["org_name", "total_revenue", "confidence_score", "state"], index=0)
     sort_asc = sort_col == "org_name"
-    display_df = filtered[available_cols].sort_values(
-        sort_col, ascending=sort_asc, na_position="last"
-    )
+    display_df = filtered[available_cols].sort_values(sort_col, ascending=sort_asc, na_position="last")
 
     st.dataframe(
         display_df,
@@ -256,11 +477,11 @@ with tab_explore:
             "org_name": st.column_config.TextColumn("Organization", width="large"),
             "total_revenue": st.column_config.NumberColumn("Revenue", format="$%d"),
             "confidence_score": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=1),
+            "confidence_grade": st.column_config.TextColumn("Grade", width="small"),
             "website": st.column_config.LinkColumn("Website"),
         },
     )
 
-    # Download button
     csv_export = filtered.to_csv(index=False).encode("utf-8")
     st.download_button(
         label=f"Download filtered results ({len(filtered):,} orgs)",
@@ -269,51 +490,89 @@ with tab_explore:
         mime="text/csv",
     )
 
-    # Org detail expander
+    # Organization Detail
     st.divider()
     st.subheader("Organization Detail")
     org_search = st.text_input("Search for a specific org", key="detail_search")
     if org_search:
         matches = filtered[filtered["org_name"].str.contains(org_search, case=False, na=False)]
         if len(matches) > 0:
-            selected_org = st.selectbox(
-                "Select organization",
-                matches["org_name"].tolist()[:20],
-            )
+            selected_org = st.selectbox("Select organization", matches["org_name"].tolist()[:20])
             org_row = matches[matches["org_name"] == selected_org].iloc[0]
 
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown("**Identity**")
-                st.write(f"**Name:** {org_row.get('org_name', 'N/A')}")
-                st.write(f"**EIN:** {org_row.get('ein', 'N/A')}")
-                st.write(f"**Type:** {org_row.get('org_type', 'N/A')}")
-                st.write(f"**NTEE:** {org_row.get('ntee_code', 'N/A')}")
+            # Header with grade badge
+            grade = org_row.get("confidence_grade", "F") if pd.notna(org_row.get("confidence_grade")) else "F"
+            va_badge = ""
+            if org_row.get("va_accredited") == "Yes":
+                va_badge = ' <span class="grade-badge" style="background:#D69E2E;">VA Accredited</span>'
+            st.markdown(
+                f'<h2 style="margin-bottom:0.25rem;">{org_row.get("org_name", "N/A")}</h2>'
+                f'{grade_badge_html(grade)} {va_badge}'
+                f' <span class="source-tag">{org_row.get("data_sources", "")}</span>',
+                unsafe_allow_html=True,
+            )
 
-                st.markdown("**Contact**")
-                st.write(f"**Address:** {org_row.get('street_address', '')}, {org_row.get('city', '')}, {org_row.get('state', '')} {org_row.get('zip_code', '')}")
-                st.write(f"**Phone:** {org_row.get('phone', 'N/A')}")
-                st.write(f"**Email:** {org_row.get('email', 'N/A')}")
-                st.write(f"**Website:** {org_row.get('website', 'N/A')}")
+            # Confidence breakdown grid
+            detail_json = org_row.get("confidence_detail")
+            if pd.notna(detail_json):
+                st.markdown(render_confidence_breakdown(detail_json), unsafe_allow_html=True)
+
+            # Three-column content
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.markdown(
+                    f'<div class="metric-card" style="border-top:3px solid {NAVY};">'
+                    f'<h4 style="color:{NAVY};">Identity & Location</h4>'
+                    f'<p><strong>EIN:</strong> {org_row.get("ein", "N/A")}</p>'
+                    f'<p><strong>Type:</strong> {org_row.get("org_type", "N/A")}</p>'
+                    f'<p><strong>NTEE:</strong> {org_row.get("ntee_code", "N/A")}</p>'
+                    f'<p><strong>Address:</strong> {org_row.get("street_address", "")}, '
+                    f'{org_row.get("city", "")}, {org_row.get("state", "")} {org_row.get("zip_code", "")}</p>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
             with c2:
-                st.markdown("**Financials**")
-                st.write(f"**Revenue:** {format_currency(org_row.get('total_revenue'))}")
-                st.write(f"**Expenses:** {format_currency(org_row.get('total_expenses'))}")
-                st.write(f"**Assets:** {format_currency(org_row.get('total_assets'))}")
-                st.write(f"**Net Assets:** {format_currency(org_row.get('net_assets'))}")
-                st.write(f"**Employees:** {org_row.get('num_employees', 'N/A')}")
+                st.markdown(
+                    f'<div class="metric-card" style="border-top:3px solid {GREEN};">'
+                    f'<h4 style="color:{GREEN};">Financials</h4>'
+                    f'<p><strong>Revenue:</strong> {format_currency(org_row.get("total_revenue"))}</p>'
+                    f'<p><strong>Expenses:</strong> {format_currency(org_row.get("total_expenses"))}</p>'
+                    f'<p><strong>Assets:</strong> {format_currency(org_row.get("total_assets"))}</p>'
+                    f'<p><strong>Net Assets:</strong> {format_currency(org_row.get("net_assets"))}</p>'
+                    f'<p><strong>Employees:</strong> {org_row.get("num_employees", "N/A")}</p>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
-                st.markdown("**Ratings & Status**")
-                st.write(f"**VA Accredited:** {org_row.get('va_accredited', 'N/A')}")
-                st.write(f"**CN Rating:** {org_row.get('charity_navigator_rating', 'N/A')}")
-                st.write(f"**Confidence:** {org_row.get('confidence_score', 'N/A')}")
-                st.write(f"**Data Sources:** {org_row.get('data_sources', 'N/A')}")
+            with c3:
+                phone_val = org_row.get("phone", "N/A")
+                email_val = org_row.get("email", "N/A")
+                website_val = org_row.get("website", "N/A")
+                website_link = f'<a href="{website_val}" target="_blank">{website_val}</a>' if pd.notna(website_val) and website_val != "N/A" else "N/A"
+                st.markdown(
+                    f'<div class="metric-card" style="border-top:3px solid {BLUE};">'
+                    f'<h4 style="color:{BLUE};">Contact & Social</h4>'
+                    f'<p><strong>Phone:</strong> {phone_val if pd.notna(phone_val) else "N/A"}</p>'
+                    f'<p><strong>Email:</strong> {email_val if pd.notna(email_val) else "N/A"}</p>'
+                    f'<p><strong>Website:</strong> {website_link}</p>'
+                    f'<p><strong>CN Rating:</strong> {org_row.get("charity_navigator_rating", "N/A")}</p>'
+                    f'<p><strong>Confidence:</strong> {org_row.get("confidence_score", "N/A")}</p>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
+            # Mission statement
             if pd.notna(org_row.get("mission_statement")):
-                st.markdown("**Mission**")
-                st.write(org_row["mission_statement"])
+                st.markdown(
+                    f'<div class="metric-card" style="border-top:3px solid #D69E2E; margin-top:0.75rem;">'
+                    f'<h4 style="color:#D69E2E;">Mission</h4>'
+                    f'<p>{org_row["mission_statement"]}</p>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
+            # Personnel
             if pd.notna(org_row.get("key_personnel")):
                 st.markdown("**Key Personnel**")
                 try:
@@ -326,7 +585,7 @@ with tab_explore:
             st.info("No organizations found matching your search.")
 
 
-# ── TAB: Map ───────────────────────────────────────────────────────────
+# ── TAB: Map ──────────────────────────────────────────────────────────
 with tab_map:
     st.subheader("Organizations by State")
 
@@ -340,19 +599,15 @@ with tab_map:
         locationmode="USA-states",
         color="count",
         scope="usa",
-        color_continuous_scale="Blues",
+        color_continuous_scale=[[0, "#EDF2F7"], [0.5, "#3182CE"], [1, "#1B3A5C"]],
         labels={"count": "Organizations", "state": "State"},
         hover_name="state_name",
         hover_data={"count": True, "state": False},
     )
-    fig_map.update_layout(
-        margin=dict(t=20, b=20, l=20, r=20),
-        height=500,
-        geo=dict(bgcolor="rgba(0,0,0,0)"),
-    )
+    style_chart(fig_map, height=500)
+    fig_map.update_layout(geo=dict(bgcolor="rgba(0,0,0,0)"))
     st.plotly_chart(fig_map, use_container_width=True)
 
-    # State detail table
     state_summary = filtered.groupby("state").agg(
         org_count=("org_name", "count"),
         total_revenue=("total_revenue", "sum"),
@@ -375,23 +630,22 @@ with tab_map:
     )
 
 
-# ── TAB: Potential Funders ─────────────────────────────────────────────
+# ── TAB: Potential Funders ────────────────────────────────────────────
 with tab_funders:
     st.subheader("Potential Funders for Active Heroes")
     st.caption("Organizations with $1M+ revenue — potential grant sources and partners")
 
-    funder_keywords = ["foundation", "fund", "trust", "endowment", "philanthrop", "grant", "giving"]
-    is_funder_name = filtered["org_name"].str.lower().str.contains(
-        "|".join(funder_keywords), na=False
-    )
     high_revenue = filtered["total_revenue"].notna() & (filtered["total_revenue"] >= 1_000_000)
-    funders = filtered[high_revenue].copy()
-    funders = funders.sort_values("total_revenue", ascending=False)
+    funders = filtered[high_revenue].copy().sort_values("total_revenue", ascending=False)
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Potential Funders", f"{len(funders):,}")
-    col2.metric("Combined Revenue", format_currency(funders["total_revenue"].sum()))
-    col3.metric("Avg Revenue", format_currency(funders["total_revenue"].mean()) if len(funders) > 0 else "N/A")
+    with col1:
+        st.markdown(metric_card("Potential Funders", f"{len(funders):,}", "💰", NAVY), unsafe_allow_html=True)
+    with col2:
+        st.markdown(metric_card("Combined Revenue", format_currency(funders["total_revenue"].sum()), "📊", GREEN), unsafe_allow_html=True)
+    with col3:
+        avg_rev = format_currency(funders["total_revenue"].mean()) if len(funders) > 0 else "N/A"
+        st.markdown(metric_card("Avg Revenue", avg_rev, "📈", "#2C5282"), unsafe_allow_html=True)
 
     funder_cols = ["org_name", "state", "city", "total_revenue", "total_assets",
                     "org_type", "ntee_code", "website", "phone"]
@@ -418,7 +672,7 @@ with tab_funders:
     )
 
 
-# ── TAB: Peer Network ─────────────────────────────────────────────────
+# ── TAB: Peer Network ────────────────────────────────────────────────
 with tab_peers:
     st.subheader("Peer Network — Mental Health & Suicide Prevention")
     st.caption("Organizations working in veteran mental health, PTSD, crisis support, and wellness")
@@ -439,26 +693,20 @@ with tab_peers:
     peers = filtered[mh_mask].copy()
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Peer Organizations", f"{len(peers):,}")
-    col2.metric("States Represented", peers["state"].nunique() if len(peers) > 0 else 0)
-    col3.metric(
-        "Combined Revenue",
-        format_currency(peers["total_revenue"].sum()) if len(peers) > 0 else "N/A"
-    )
+    with col1:
+        st.markdown(metric_card("Peer Organizations", f"{len(peers):,}", "🤝", NAVY), unsafe_allow_html=True)
+    with col2:
+        st.markdown(metric_card("States Represented", str(peers["state"].nunique()) if len(peers) > 0 else "0", "🗺️", "#2C5282"), unsafe_allow_html=True)
+    with col3:
+        peer_rev = format_currency(peers["total_revenue"].sum()) if len(peers) > 0 else "N/A"
+        st.markdown(metric_card("Combined Revenue", peer_rev, "💰", GREEN), unsafe_allow_html=True)
 
     if len(peers) > 0:
-        # State distribution
         peer_states = peers["state"].value_counts().head(10)
         peer_state_df = pd.DataFrame({"State": peer_states.index, "Peer Orgs": peer_states.values})
-        fig_peer = px.bar(
-            peer_state_df, x="State", y="Peer Orgs",
-            color="Peer Orgs",
-            color_continuous_scale="Reds",
-        )
-        fig_peer.update_layout(
-            margin=dict(t=20, b=20), height=300,
-            showlegend=False, coloraxis_showscale=False,
-        )
+        fig_peer = px.bar(peer_state_df, x="State", y="Peer Orgs")
+        fig_peer.update_traces(marker_color=CHART_COLORS[:len(peer_state_df)])
+        style_chart(fig_peer, height=300)
         st.plotly_chart(fig_peer, use_container_width=True)
 
     peer_cols = ["org_name", "state", "city", "total_revenue", "org_type",
@@ -485,7 +733,7 @@ with tab_peers:
     )
 
 
-# ── TAB: Gap Analysis ─────────────────────────────────────────────────
+# ── TAB: Gap Analysis ────────────────────────────────────────────────
 with tab_gaps:
     st.subheader("Underserved Areas — Gap Analysis")
     st.caption("States with the fewest veteran organizations relative to veteran population")
@@ -519,21 +767,17 @@ with tab_gaps:
 
     gap_df = pd.DataFrame(gap_rows).sort_values("Orgs per 100K Veterans")
 
-    # Choropleth - lower ratio = more red (underserved)
     fig_gap = px.choropleth(
         gap_df,
         locations="State",
         locationmode="USA-states",
         color="Orgs per 100K Veterans",
         scope="usa",
-        color_continuous_scale="RdYlGn",
+        color_continuous_scale=[[0, "#C53030"], [0.5, "#D69E2E"], [1, "#2F855A"]],
         hover_name="State Name",
         hover_data={"Organizations": True, "Veteran Population": True},
     )
-    fig_gap.update_layout(
-        margin=dict(t=20, b=20, l=20, r=20),
-        height=500,
-    )
+    style_chart(fig_gap, height=500)
     st.plotly_chart(fig_gap, use_container_width=True)
 
     st.subheader("Most Underserved States")
@@ -555,11 +799,3 @@ with tab_gaps:
             "Veteran Population": st.column_config.NumberColumn(format="%d"),
         },
     )
-
-
-# ── Sidebar Footer ────────────────────────────────────────────────────
-st.sidebar.divider()
-st.sidebar.caption(
-    f"Data: {len(df):,} organizations from IRS BMF, ProPublica, VA OGC, NRD\n\n"
-    f"Last updated: {df['data_freshness_date'].dropna().max() if 'data_freshness_date' in df.columns else 'N/A'}"
-)

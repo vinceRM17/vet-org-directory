@@ -1,74 +1,79 @@
 ======================================================================
 VETERAN ORGANIZATION DIRECTORY — SUMMARY REPORT
-Generated: 2026-02-11T08:39:38
+Generated: 2026-02-12T02:37:05
 ======================================================================
 
-Total organizations: 80,784
-Unique EINs: 80,704
-Records with EIN: 80,704
-Records without EIN: 80
+Total organizations: 85,289
+Unique EINs: 85,289
+Records with EIN: 85,289
+Records without EIN: 0
 
 ── Coverage ──
-States/territories represented: 58
-Records with phone: 83
+States/territories represented: 57
+Records with phone: 0
 Records with email: 0
-Records with website: 1
+Records with website: 0
 Records with mission: 0
-Records with financials: 70,027
+Records with financials: 71,459
 Records with CN rating: 0
-VA-accredited orgs: 91
+VA-accredited orgs: 0
 
 ── Confidence Scores ──
-Mean confidence: 0.526
+Mean confidence: 0.524
 Median confidence: 0.550
 High confidence (>0.7): 0
-Medium confidence (0.4-0.7): 80,704
-Low confidence (<0.4): 80
+Medium confidence (0.4-0.7): 85,289
+Low confidence (<0.4): 0
+
+── Confidence Grades ──
+  A (Verified): 0
+  B (Strong): 45,407
+  C (Basic): 38,048
+  D (Minimal): 1,834
+  F (Stub): 0
 
 ── By State (top 15) ──
-  CA: 7,295
-  FL: 5,699
-  TX: 5,434
-  NY: 4,269
-  PA: 3,401
-  OH: 3,305
-  IL: 2,916
-  MI: 2,572
-  NC: 2,564
-  GA: 2,445
-  VA: 2,394
-  NJ: 2,007
-  MN: 2,004
-  WI: 1,954
-  IN: 1,823
+  CA: 7,438
+  FL: 5,984
+  TX: 5,658
+  NY: 4,499
+  PA: 3,757
+  OH: 3,582
+  IL: 3,054
+  MI: 2,705
+  NC: 2,668
+  VA: 2,610
+  GA: 2,562
+  WI: 2,263
+  MN: 2,101
+  NJ: 2,079
+  IN: 1,941
 
 ── By Organization Type ──
-  501(c)(3): 50,250
-  501(c)(19): 21,626
-  501(c)(4): 6,107
-  501(c)(06): 669
-  501(c)(12): 630
-  501(c)(07): 563
+  501(c)(3): 50,757
+  501(c)(19): 24,739
+  501(c)(4): 7,004
+  501(c)(06): 706
+  501(c)(12): 632
+  501(c)(07): 568
   501(c)(14): 137
-  501(c)(05): 112
+  501(c)(05): 119
   501(c)(13): 96
-  501(c)(10): 85
+  501(c)(10): 92
 
 ── By Revenue Range ──
-  $0: 47,240
-  $100K–$500K: 8,166
-  Under $50K: 5,815
-  $50K–$100K: 3,963
-  $1M–$5M: 1,925
-  $500K–$1M: 1,612
-  $10M–$50M: 507
-  $5M–$10M: 375
-  $100M+: 140
-  $50M–$100M: 105
+  $0: 50,592
+  $100K–$500K: 8,077
+  Under $50K: 4,414
+  $50K–$100K: 3,845
+  $1M–$5M: 1,798
+  $500K–$1M: 1,560
+  $10M–$50M: 477
+  $5M–$10M: 352
+  $100M+: 136
+  $50M–$100M: 101
 
 ── Data Sources ──
-  irs_bmf: 80,704
-  va_vso: 91
-  nrd: 1
+  irs_bmf: 85,289
 
 ======================================================================

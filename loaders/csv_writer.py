@@ -1,5 +1,6 @@
 """Final CSV output with confidence scores and summary report."""
 
+import json
 import logging
 from datetime import datetime
 
@@ -7,7 +8,10 @@ import pandas as pd
 
 from config.schema import (
     COLUMN_NAMES,
+    CONFIDENCE_TIERS,
     CONFIDENCE_WEIGHTS,
+    FIELD_GROUPS,
+    GRADE_INFO,
     coerce_schema,
     revenue_to_range,
 )
@@ -33,6 +37,101 @@ def calculate_confidence(df: pd.DataFrame) -> pd.Series:
     return scores.round(3)
 
 
+# Source heuristic: map field group → likely data source
+_GROUP_SOURCE_MAP = {
+    "identity": "irs_bmf",
+    "location": "irs_bmf",
+    "classification": "irs_bmf",
+    "financials": "propublica",
+    "contact": "web_enrichment",
+    "ratings": "charity_nav",
+    "description": "nrd",
+    "social": "web_enrichment",
+    "personnel": "propublica",
+}
+
+
+def _row_has(row, col):
+    """Check if a row value is non-null and non-empty."""
+    val = row.get(col)
+    if val is None:
+        return False
+    try:
+        if pd.isna(val):
+            return False
+    except (ValueError, TypeError):
+        pass
+    return str(val).strip() != ""
+
+
+def assign_grade(row) -> str:
+    """Assign a letter grade A-F based on what field groups are present."""
+    has_name = _row_has(row, "org_name")
+    has_ein = _row_has(row, "ein")
+    has_address = _row_has(row, "street_address") or (_row_has(row, "city") and _row_has(row, "state"))
+    has_financials = _row_has(row, "total_revenue")
+    has_ntee = _row_has(row, "ntee_code")
+    has_contact = _row_has(row, "phone") or _row_has(row, "email") or _row_has(row, "website")
+    has_rating = _row_has(row, "charity_navigator_rating") or (row.get("va_accredited") == "Yes")
+
+    has_identity = has_name and has_ein and has_address
+
+    if has_identity and has_financials and has_contact and has_rating:
+        return "A"
+    elif has_identity and has_financials and has_ntee:
+        return "B"
+    elif has_identity and (has_financials or has_ntee):
+        return "C"
+    elif has_name and has_ein and has_address:
+        return "D"
+    else:
+        return "F"
+
+
+def calculate_confidence_detail(df: pd.DataFrame) -> pd.Series:
+    """Calculate per-field-group breakdown as JSON for each row.
+
+    Returns a Series of JSON strings with structure:
+    {
+        "grade": "B",
+        "groups": {
+            "identity": {"filled": 3, "total": 3, "source": "irs_bmf"},
+            "financials": {"filled": 2, "total": 4, "source": "propublica"},
+            ...
+        }
+    }
+    """
+    def _detail_for_row(row):
+        groups = {}
+        for gkey, gdef in FIELD_GROUPS.items():
+            fields = gdef["fields"]
+            filled = sum(1 for f in fields if _row_has(row, f))
+            # Infer source from data_sources column if available
+            source = gdef["source_hint"]
+            ds = row.get("data_sources")
+            if ds and isinstance(ds, str):
+                ds_lower = ds.lower()
+                if gkey == "financials" and "propublica" in ds_lower:
+                    source = "propublica"
+                elif gkey in ("identity", "location", "classification") and "irs_bmf" in ds_lower:
+                    source = "irs_bmf"
+                elif gkey == "contact" and ("va_vso" in ds_lower or "web" in ds_lower):
+                    source = "va_vso" if "va_vso" in ds_lower else "web_enrichment"
+                elif gkey == "ratings" and "charity_nav" in ds_lower:
+                    source = "charity_nav"
+
+            groups[gkey] = {
+                "filled": filled,
+                "total": len(fields),
+                "source": source,
+            }
+
+        grade = assign_grade(row)
+        return json.dumps({"grade": grade, "groups": groups})
+
+    return df.apply(_detail_for_row, axis=1)
+
+
 def write_csv(df: pd.DataFrame, filename: str = "veteran_org_directory.csv") -> str:
     """Write the final CSV and summary report.
 
@@ -42,6 +141,12 @@ def write_csv(df: pd.DataFrame, filename: str = "veteran_org_directory.csv") -> 
 
     # Calculate confidence scores
     df["confidence_score"] = calculate_confidence(df)
+
+    # Calculate confidence detail and grade
+    df["confidence_detail"] = calculate_confidence_detail(df)
+    df["confidence_grade"] = df["confidence_detail"].apply(
+        lambda x: json.loads(x)["grade"] if pd.notna(x) else "F"
+    )
 
     # Calculate revenue ranges
     df["annual_revenue_range"] = df["total_revenue"].apply(revenue_to_range)
@@ -97,8 +202,19 @@ def _generate_summary(df: pd.DataFrame) -> str:
         f"Medium confidence (0.4-0.7): {((df['confidence_score'] >= 0.4) & (df['confidence_score'] <= 0.7)).sum():,}",
         f"Low confidence (<0.4): {(df['confidence_score'] < 0.4).sum():,}",
         "",
-        "── By State (top 15) ──",
+        "── Confidence Grades ──",
     ]
+    if "confidence_grade" in df.columns:
+        grade_counts = df["confidence_grade"].value_counts()
+        for g in ("A", "B", "C", "D", "F"):
+            cnt = grade_counts.get(g, 0)
+            info = GRADE_INFO.get(g, {})
+            label = info.get("label", "")
+            lines.append(f"  {g} ({label}): {cnt:,}")
+    lines.extend([
+        "",
+        "── By State (top 15) ──",
+    ])
 
     state_counts = df["state"].value_counts().head(15)
     for state, count in state_counts.items():
